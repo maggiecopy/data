@@ -1,0 +1,66 @@
+from matplotlib.backends.backend_pdf import PdfPages
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+# load in crude oil price
+crudeoil = pd.read_excel('PET_PRI_SPT_S1_D.xls',sheetname='Data 1',header=2,index_col=0)
+
+print("The list of row indicies")
+print(crudeoil.index)
+print("The column headings")
+print(crudeoil.columns)
+
+# resample time series to year end frequency
+# and delete the year 2015 info since the next
+# set of data is only until 2014
+ycrudeoil=crudeoil.resample('A', how='mean') 
+ycrudeoil=ycrudeoil[0:len(ycrudeoil)-1] 
+
+# load in Economy & Growth data file and delete the 
+# year before 1985, since the oil price is only from 1985
+A = pd.read_csv('3_Topic_en_csv_v2.csv',header=2,index_col=0)
+frame = pd.DataFrame(A)
+for i in range(1960,1986):
+  frame=frame.drop(str(i),axis=1)
+# drop columns has all NaN value
+A = frame.dropna(axis=1,how='all')
+
+# I did the analysis for a lot of contries, but only pick those to display
+C = A.ix[['China','Greece','India','Russian Federation','United States','Zimbabwe']]
+C = C.loc[C['Indicator Code']=='NE.CON.TETC.CD']
+
+D=C.transpose()
+data=D[3:len(D)]
+data=data.convert_objects(convert_numeric=True)
+data = data.set_index(ycrudeoil.index)
+
+# plot and save the Final consumption expenditure for those contries
+with PdfPages('FinalConsExp.pdf') as pp:
+  D[3:len(D)].plot(logy=True,linewidth=4)
+  plt.title('Final consumption expenditure, etc. (current US$)')
+  pp.savefig(plt.gcf())
+
+# concatenate economy data with the crude oil price
+# and compute their correlation matrix 
+final=pd.concat([data.ix[:,:],ycrudeoil.ix[:,0],ycrudeoil.ix[:,1]],axis=1)
+corr=final.corr()
+
+# plot and save the correlation matrix as a pdf file
+with PdfPages('CorrMatrix.pdf') as pp:
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  cax = ax.matshow(corr, interpolation='nearest')
+  fig.colorbar(cax)
+  alpha=['CHN','GRE','IND','RUS','USA','ZWE','WTI FOB','Europe FOB']
+  ax.set_xticklabels(['']+alpha)
+  plt.xticks(rotation=90)
+  ax.set_yticklabels(['']+alpha)
+  #plt.show()
+  pp.savefig(plt.gcf())
+
+
+#
+#B.dtypes print columns head and datatype
+#CNames=pd.Series((B['Country Name']).values.ravel()).unique() print all the Country Names
+#len(CNames) No. of countries
